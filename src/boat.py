@@ -1,0 +1,49 @@
+from enum import Enum
+class BoatTypes(Enum):
+    lentotukialus = {"Size": 4, "Amount": 1},
+    risteilija = {"Size": 3, "Amount": 2},
+    havittaja = {"Size": 2, "Amount": 3},
+    sukellusvene = {"Size": 1, "Amount": 4},
+
+
+class Boat:
+    def __init__(self, boat_type: BoatTypes, position: tuple[int, int], rotation: int):
+        self.BoatType = boat_type
+        self.Size: int = boat_type[0]['Size']
+        self.Position: tuple[int, int] = position
+        self.Rotation: int = rotation
+        self.Cells: dict[tuple[int, int], bool] = []
+
+    def check_status(self) -> bool:
+        """ Tarkistaa onko kaikki True tai False. Jos kaikki on False palauttaa False """
+        return any(self.Cells.values())
+
+    def add_cell(self, pos: tuple[int, int]):
+        """ Lisää positionin laivan Cells sanakirjaan {pos: True} """
+        if pos not in self.Cells:
+            self.Cells[pos] = True
+
+    def get_positions(self) -> list[tuple[int, int]]:
+        """ Palauttaa laivan kaikki positiot rotation ja sizen mukaan. 
+            Lista pitää sisällä tuple[int, int]
+        """
+        current_pos: tuple[int, int] = self.Position
+        direction: tuple[int, int] = self.get_dir()
+        positions: list[tuple[int, int]] = []
+
+        for _ in range(self.Size):
+            positions.append(current_pos)
+            current_pos = (current_pos[0] + direction[0], current_pos[1] + direction[1])
+
+        return positions
+            
+    def get_dir(self):
+        """ Palauttaa suunnan Rotation perusteella. return tuple[int, int] """
+        match self.Rotation:
+            case 0:
+                return (0, 1)
+            case 1:
+                return (1, 0)
+            case _:
+                return (0, 1)
+            
