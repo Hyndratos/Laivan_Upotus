@@ -1,18 +1,26 @@
 from enum import Enum
-class BoatTypes(Enum):
-    lentotukialus = {"Size": 4, "Amount": 1},
-    risteilija = {"Size": 3, "Amount": 2},
-    havittaja = {"Size": 2, "Amount": 3},
-    sukellusvene = {"Size": 1, "Amount": 4},
+
+#class BoatTypes(Enum):
+#    lentotukialus = {"Size": 4, "Amount": 1},
+#    risteilija = {"Size": 3, "Amount": 2},
+#    havittaja = {"Size": 2, "Amount": 3},
+#    sukellusvene = {"Size": 1, "Amount": 4},
+
+BoatTypes = {
+    "lentotukialus": {"Size": 4, "Amount": 1},
+    "risteilija": {"Size": 3, "Amount": 2},
+    "havittaja": {"Size": 2, "Amount": 3},
+    "sukellusvene": {"Size": 1, "Amount": 4},
+}
 
 
 class Boat:
-    def __init__(self, boat_type: BoatTypes, position: tuple[int, int], rotation: int):
+    def __init__(self, boat_type: dict[str, dict[str, int]], position: tuple[int, int], rotation: int):
         self.BoatType = boat_type
-        self.Size: int = boat_type[0]['Size']
+        self.Size: int = boat_type['Size']
         self.Position: tuple[int, int] = position
         self.Rotation: int = rotation
-        self.Cells: dict[tuple[int, int], bool] = []
+        self.Cells: dict[tuple[int, int], bool] = {}
 
     def check_status(self) -> bool:
         """ Tarkistaa onko kaikki True tai False. Jos kaikki on False palauttaa False """
@@ -24,7 +32,8 @@ class Boat:
             self.Cells[pos] = True
 
     def get_positions(self) -> list[tuple[int, int]]:
-        """ Palauttaa laivan kaikki positiot rotation ja sizen mukaan. 
+        """ 
+            Palauttaa laivan kaikki positiot rotation ja sizen mukaan. 
             Lista pitää sisällä tuple[int, int]
         """
         current_pos: tuple[int, int] = self.Position
