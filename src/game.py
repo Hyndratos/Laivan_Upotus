@@ -1,6 +1,6 @@
 import subprocess
 import sys
-from random import randint
+from random import randint, choice
 from boat import Boat, BoatTypes
 import re
 from enum import Enum
@@ -13,9 +13,13 @@ class Player:
         self.Board: list[list[int]] = [[0 for _ in range(10)] for _ in range(10)]
         self.ShootingBoard: list[list[int]] = [[0 for _ in range(10)] for _ in range(10)]
         self.Boats: list[Boat] = []
+        # havittaja
         if DEBUG:
             self.place_boat(BoatTypes["lentotukialus"], (4,3), 0)
             self.place_boat(BoatTypes["risteilija"], (6,3), 0)
+            self.place_boat(BoatTypes["risteilija"], (6,8), 1)
+            self.place_boat(BoatTypes["havittaja"], (0,8), 1)
+            self.place_boat(BoatTypes["havittaja"], (0,2), 1)
 
     def place_boat(self, boatType: dict[str, dict[str, int]], pos: tuple[int, int], rotation: int):
         """ Laitaa Laivan self.Boats ja self.Boardiin """
@@ -41,6 +45,7 @@ class Player:
             x, y = pos
             self.Board[y][x] = 1
             new_boat.add_cell(pos)
+
         self.Boats.append(new_boat)
 
     def check_boatType_amount(self, boatType: dict[str, int]) -> bool:
@@ -90,7 +95,10 @@ class Player:
         return has_neighbors
     
     def check_pos(self, pos: tuple[int, int]) -> bool:
-        """ Palautaa True jos osui muuten False. Palautaa True myös jos osui laivaan johon on osuttu """
+        """ 
+        Palautaa True jos osui muuten False. Palautaa True myös jos osui laivaan johon on osuttu.
+        pos: tuple[int, int] (x, y)
+        """
         x, y = pos
         if self.Board[y][x] == 1 or self.Board[y][x] == 2:
             return True
@@ -98,14 +106,19 @@ class Player:
 
     def get_boat_by_pos(self, pos: tuple[int, int]) -> Boat:
         for boat in self.Boats:
-            if any(boat.Cells.keys()):
+            if pos in boat.Cells.keys():
                 return boat
+            #if any(boat.Cells.keys() is pos):
+            #    return boat
         return None
     
     def shoot(self, pos: tuple[int, int], otherPlayer) -> tuple[bool, bool]:
+        """ Functio ampuu positioon ja jos osu niin palautaa True ja jos tuhos niin palautaa True """
+
         x, y = pos
         hit = False
         kill = False
+
         if self.check_pos(pos):
             boat = self.get_boat_by_pos(pos)
             boat.Cells[pos] = False
@@ -116,10 +129,11 @@ class Player:
 
             if not boat.check_status():
                 kill = True
+            
+            boat.print_data()
         else:
             self.Board[y][x] = 3
             otherPlayer.ShootingBoard[y][x] = 3
-            hit = True
         
         return (hit, kill)
                 
@@ -130,35 +144,120 @@ class Cpu(Player):
         super().__init__()
         self.first_hit_pos = None
         self.last_hit_pos = None
+        self.found_dir = None
+
+        self.random_pattern: list[tuple[int, int]] = []
+
+        for y in range(10):
+            for x in range(10):
+                if y % 2 == 0 and x % 2 == 0:
+                    self.random_pattern.append((x,y))
+                elif y % 2 != 0 and x % 2 != 0:
+                    self.random_pattern.append((x,y))
+
+        print(self.random_pattern)
+
+    def reverse_dir(self, dir) -> tuple[int, int]:
+        match dir:
+            case (0, 1):
+                return (0, -1)
+            case (0, -1):
+                return (0, 1)
+            case (1, 0):
+                return (-1, 0)
+            case (-1, 0):
+                return (1, 0)
 
     def play(self, otherPlayer):
-        posX = (0,0)
-        posY = (0,0)
+        dirs = [
+            (0,-1),
+            (0, 1),
+            (-1,0),
+            (1, 0),
+        ]
 
-        for y in range(len(self.Board)):
-            for x in range(len(self.Board[y])):
-                if self.ShootingBoard[y][x] != 0:
-                    continue
-                if y % 2 == 0 and x % 2 == 0:
-                    posX = x
-                    posY = y
-                elif y % 2 != 0 and x % 2 != 0:
-                    posX = x
-                    posY = y
-                    
-                #if (x % 2 == 0 and y % 2 == 0) and self.ShootingBoard[y][x] == 0:
-                #    posX = x
-                #    posY = y
+        posX = 0
+        posY = 0
+
+        rand_dir = choice(dirs) if not self.found_dir else self.found_dir
+
+        if self.first_hit_pos:
+            while True:
+
+                posX = (self.first_hit_pos[0] if not self.last_hit_pos else self.last_hit_pos[0]) + rand_dir[0]
+                posY = (self.first_hit_pos[1] if not self.last_hit_pos else self.last_hit_pos[1]) + rand_dir[1]
+
+                if self.ShootingBoard[posY][posX] == 2 or self.ShootingBoard[posY][posX] == 3:
+
+                    rand_dir = choice(dirs)
+                    posX = (self.first_hit_pos[0] if not self.last_hit_pos else self.last_hit_pos[0]) + rand_dir[0]
+                    posY = (self.first_hit_pos[1] if not self.last_hit_pos else self.last_hit_pos[1]) + rand_dir[1]
+                else:
+                    break
+        else:
+            #for y in range(len(self.Board)):
+            #    for x in range(len(self.Board[y])):
+            #        if self.ShootingBoard[y][x] != 0:
+            #            continue
+            #        if y % 2 == 0 and x % 2 == 0:
+            #            posX = x
+            #            posY = y
+            #        elif y % 2 != 0 and x % 2 != 0:
+            #            posX = x
+            #            posY = y
+            position_trys = 0
+            while True:
+                random_position = choice(self.random_pattern)
+                posX = random_position[0]
+                posY = random_position[1]
+
+                #neighbors = 0
+                #for dir in dirs:
+                #    x = posX + dir[0]
+                #    y = posY + dir[1]
+                #    try:
+                #        if self.ShootingBoard[y][x] == 2 or self.ShootingBoard[y][x] == 3:
+                #            neighbors += 1
+                #    except IndexError:
+                #        continue
+                #if neighbors > 3:
+                #    continue
+
+                if self.ShootingBoard[posY][posX] == 2 or self.ShootingBoard[posY][posX] == 3:
+                    position_trys += 1
+                    if position_trys > 5:
+                        break
+                else:
+                    break
+                #if self.ShootingBoard[posY][posX] == 0:
+                #    break
         
-        hit, kill = otherPlayer.shoot((posX,posY), self)
+        hit, kill = otherPlayer.shoot((posX, posY), self)
 
         if hit:
             if self.first_hit_pos == None:
-                self.first_hit_pos = (x, y)
+                self.first_hit_pos = (posX, posY)
+            else:
+                self.found_dir = rand_dir
+            self.last_hit_pos = (posX, posY)
+
+        if not hit and self.found_dir != None and self.last_hit_pos != None:
+            self.last_hit_pos = self.first_hit_pos
+            self.found_dir = self.reverse_dir(self.found_dir)
 
         if kill:
             self.last_hit_pos = None
             self.first_hit_pos = None
+            self.found_dir = None
+
+
+        print(f"PosX: {posX} | PosY: {posY}")
+        print(f"Hit: {hit}")
+        print(f"Kill: {kill}")
+        print("---------------")
+        print(f"First Hit Pos: {self.first_hit_pos}")
+        print(f"Last Hit Pos: {self.last_hit_pos}")
+        print(f"Found Dir: {self.found_dir}")
     
 
 
@@ -206,10 +305,10 @@ class Game:
             self.draw_player_boards(player)
 
     def draw_player_boards(self, player: Player):
-        self.draw_board(player.ShootingBoard)
-        self.draw_board(player.Board)
+        self.draw_board(player.ShootingBoard, self.get_other_player())
+        self.draw_board(player.Board, self.Current_player)
 
-    def draw_board(self, board):
+    def draw_board(self, board, player: Player):
         print("\n\n")
         print("  A B C D E F G H I J")
         for y in range(len(board)):
@@ -217,11 +316,15 @@ class Game:
             for x in range(len(board[y])):
                 match board[y][x]:
                     case 0:
-                        print("#", end=" ")
+                        print(".", end=" ")
                     case 1:
                         print("@", end=" ")
                     case 2:
-                        print("O", end=" ")
+                        boat = player.get_boat_by_pos((x,y))
+                        if not boat.check_status():
+                            print("#", end=" ")
+                        else:
+                            print("¤", end=" ")
                     case 3:
                         print("X", end=" ")
             print()

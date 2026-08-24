@@ -55,4 +55,7 @@ class Boat:
                 return (1, 0)
             case _:
                 return (0, 1)
-            
+
+    def print_data(self):
+        print(f"Size: {self.Size}")
+        print(f"Cells: {self.Cells}")
