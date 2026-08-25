@@ -13,22 +13,17 @@ class Player:
         self.Board: list[list[int]] = [[0 for _ in range(10)] for _ in range(10)]
         self.ShootingBoard: list[list[int]] = [[0 for _ in range(10)] for _ in range(10)]
         self.Boats: list[Boat] = []
-        # havittaja
         if DEBUG:
-            self.place_boat(BoatTypes["lentotukialus"], (4,3), 0)
-            self.place_boat(BoatTypes["risteilija"], (6,3), 0)
-            self.place_boat(BoatTypes["risteilija"], (6,8), 1)
-            self.place_boat(BoatTypes["havittaja"], (0,8), 1)
-            self.place_boat(BoatTypes["havittaja"], (0,2), 1)
+            self.place_boats()
 
-    def place_boat(self, boatType: dict[str, dict[str, int]], pos: tuple[int, int], rotation: int):
+    def place_boat(self, boatType: dict[str, dict[str, int]], pos: tuple[int, int], rotation: int) -> bool:
         """ Laitaa Laivan self.Boats ja self.Boardiin """
         if not self.check_boatType_amount(boatType):
-            return
+            return False
 
         new_boat = Boat(boatType, pos, rotation)
         if self.check_neighbors(new_boat):
-            return
+            return False
         
         inside_board = False
         for pos in new_boat.get_positions():
@@ -39,7 +34,7 @@ class Player:
                 inside_board = False
 
         if not inside_board:
-            return
+            return False
         
         for pos in new_boat.get_positions():
             x, y = pos
@@ -47,6 +42,7 @@ class Player:
             new_boat.add_cell(pos)
 
         self.Boats.append(new_boat)
+        return True
 
     def check_boatType_amount(self, boatType: dict[str, int]) -> bool:
         """ palautaa True jos laiva tyyppiä voi vielä laitaa. """
@@ -88,7 +84,11 @@ class Player:
                 position = (pos[0] + dir[0], pos[1] + dir[1])
                 x, y = position
 
-                if self.Board[y][x] == 1:
+                try:
+                    if self.Board[y][x] == 1:
+                        has_neighbors = True
+                        break
+                except IndexError:
                     has_neighbors = True
                     break
         
@@ -100,6 +100,7 @@ class Player:
         pos: tuple[int, int] (x, y)
         """
         x, y = pos
+        
         if self.Board[y][x] == 1 or self.Board[y][x] == 2:
             return True
         return False
@@ -118,24 +119,82 @@ class Player:
         x, y = pos
         hit = False
         kill = False
+        try:
+            if self.check_pos(pos):
+                boat = self.get_boat_by_pos(pos)
+                boat.Cells[pos] = False
 
-        if self.check_pos(pos):
-            boat = self.get_boat_by_pos(pos)
-            boat.Cells[pos] = False
+                self.Board[y][x] = 2
+                otherPlayer.ShootingBoard[y][x] = 2
+                hit = True
 
-            self.Board[y][x] = 2
-            otherPlayer.ShootingBoard[y][x] = 2
-            hit = True
-
-            if not boat.check_status():
-                kill = True
-            
-            boat.print_data()
-        else:
-            self.Board[y][x] = 3
-            otherPlayer.ShootingBoard[y][x] = 3
-        
+                if not boat.check_status():
+                    kill = True
+                
+                boat.print_data()
+            else:
+                self.Board[y][x] = 3
+                otherPlayer.ShootingBoard[y][x] = 3
+        except IndexError:
+            return (hit, kill)
         return (hit, kill)
+    
+    def place_boats(self):
+        """
+        Tämä functio laitaa laivat randomisti peli laudalle. Yritää niin pitkää kunnes saa kaikki laitettua.
+        """
+
+        neededAmount = 0
+        placedAmount = 0
+        placementFailsAmount = 0
+
+        for boatType in BoatTypes.values():
+            neededAmount += boatType['Amount']
+            
+        while placedAmount < neededAmount:
+            posX = 0
+            posy = 0
+            rotation = 0
+
+            if placementFailsAmount > 1000:
+                self.clear_player()
+                placedAmount = 0
+                placementFailsAmount = 0
+            else:
+                for boatType in BoatTypes.values():
+                    for _ in range(boatType['Amount']):
+                        posX = randint(0, 9)
+                        posy = randint(0, 9)
+                        rotation = randint(0, 1)
+                        success = self.place_boat(boatType, (posX, posy), rotation)
+
+                        if success:
+                            placedAmount += 1
+                        else:
+                            placementFailsAmount += 1
+            if DEBUG:
+                subprocess.run(["clear" if sys.platform == "linux" else "cls"], shell=True)
+                print(f"Needed Amount: {neededAmount}")
+                print(f"Placed Amount: {placedAmount}")
+                print(f"Placement Fails Amount: {placementFailsAmount}")
+
+    def clear_player(self):
+        """ Palautaa Player Classin takas init muotoon. """
+        self.Board: list[list[int]] = [[0 for _ in range(10)] for _ in range(10)]
+        self.ShootingBoard: list[list[int]] = [[0 for _ in range(10)] for _ in range(10)]
+        self.Boats: list[Boat] = []
+
+    def is_dead(self) -> bool:
+        boatStatusList = []
+        for boat in self.Boats:
+            boatStatusList.append(boat.check_status())
+        print(boatStatusList)
+        return any(boatStatusList)
+
+
+                    
+            
+
                 
 
 
@@ -154,8 +213,9 @@ class Cpu(Player):
                     self.random_pattern.append((x,y))
                 elif y % 2 != 0 and x % 2 != 0:
                     self.random_pattern.append((x,y))
-
-        print(self.random_pattern)
+        if DEBUG:
+            print(self.random_pattern)
+        self.place_boats()
 
     def reverse_dir(self, dir) -> tuple[int, int]:
         match dir:
@@ -192,19 +252,8 @@ class Cpu(Player):
                     rand_dir = choice(dirs)
                     posX = (self.first_hit_pos[0] if not self.last_hit_pos else self.last_hit_pos[0]) + rand_dir[0]
                     posY = (self.first_hit_pos[1] if not self.last_hit_pos else self.last_hit_pos[1]) + rand_dir[1]
-                else:
-                    break
+                break
         else:
-            #for y in range(len(self.Board)):
-            #    for x in range(len(self.Board[y])):
-            #        if self.ShootingBoard[y][x] != 0:
-            #            continue
-            #        if y % 2 == 0 and x % 2 == 0:
-            #            posX = x
-            #            posY = y
-            #        elif y % 2 != 0 and x % 2 != 0:
-            #            posX = x
-            #            posY = y
             position_trys = 0
             while True:
                 random_position = choice(self.random_pattern)
@@ -229,8 +278,6 @@ class Cpu(Player):
                         break
                 else:
                     break
-                #if self.ShootingBoard[posY][posX] == 0:
-                #    break
         
         hit, kill = otherPlayer.shoot((posX, posY), self)
 
@@ -250,14 +297,14 @@ class Cpu(Player):
             self.first_hit_pos = None
             self.found_dir = None
 
-
-        print(f"PosX: {posX} | PosY: {posY}")
-        print(f"Hit: {hit}")
-        print(f"Kill: {kill}")
-        print("---------------")
-        print(f"First Hit Pos: {self.first_hit_pos}")
-        print(f"Last Hit Pos: {self.last_hit_pos}")
-        print(f"Found Dir: {self.found_dir}")
+        if DEBUG:
+            print(f"PosX: {posX} | PosY: {posY}")
+            print(f"Hit: {hit}")
+            print(f"Kill: {kill}")
+            print("---------------")
+            print(f"First Hit Pos: {self.first_hit_pos}")
+            print(f"Last Hit Pos: {self.last_hit_pos}")
+            print(f"Found Dir: {self.found_dir}")
     
 
 
@@ -289,6 +336,8 @@ class Game:
         hit, kill = otherPlayer.shoot(pos, self.Current_player)
 
     def change_player(self):
+        """ Vaihtaa Current_player valuen toiseen pelaajaan """
+
         if self.Current_player_index == 0:
             self.Current_player_index = 1
             self.Current_player = self.Players[self.Current_player_index]
@@ -297,18 +346,26 @@ class Game:
             self.Current_player = self.Players[self.Current_player_index]
 
     def clear_console(self):
-        """ Tyhjentää terminaalin seurvaa piirtoa varten """
+        """ Tyhjentää terminaalin seuraavaa piirtoa varten """
         subprocess.run(["clear" if sys.platform == "linux" else "cls"], shell=True)
     
     def draw_all_boards(self):
+        """ Debug piirto. Piirtää kaikki laudat """
         for player in self.Players:
             self.draw_player_boards(player)
 
     def draw_player_boards(self, player: Player):
+        """ Piirtää pelaajan molemmat peli laudat. """
         self.draw_board(player.ShootingBoard, self.get_other_player())
         self.draw_board(player.Board, self.Current_player)
 
-    def draw_board(self, board, player: Player):
+    def draw_board(self, board: list[list[int]], player: Player):
+        """ 
+        Piirtää annetun laudan.
+        board: list[list[int]]
+        player: Player
+        """
+
         print("\n\n")
         print("  A B C D E F G H I J")
         for y in range(len(board)):
@@ -362,20 +419,31 @@ class Game:
         return (x, y, dir)
 
 
-    def update(self):
+    def update(self) -> bool:
         """ Pelin Update functio joka pyörii joka kerta uudestaan kun input annetaan. """
+
         #self.clear_console()
         print(f"Current Player: {type(self.Current_player)}")
         self.draw_player_boards(self.Current_player)
-        #self.draw_all_boards()
 
         if not isinstance(self.Current_player, Cpu):
             command = str(input("Anna positio: "))
+
             x, y, dir = self.convert_command(command)
+
             if self.State == GameState.Placement:
+
                 self.place_boat(BoatTypes["lentotukialus"], (x,y), dir)
+
             elif self.State == GameState.Shooting:
+
                 self.shoot((x,y))
         else:
             self.Current_player.play(self.get_other_player())
+
+
+        
         self.change_player()
+
+        #if not self.Current_player.is_dead():
+        #    return True

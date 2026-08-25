@@ -7,10 +7,10 @@ from enum import Enum
 #    sukellusvene = {"Size": 1, "Amount": 4},
 
 BoatTypes = {
-    "lentotukialus": {"Size": 4, "Amount": 1},
-    "risteilija": {"Size": 3, "Amount": 2},
-    "havittaja": {"Size": 2, "Amount": 3},
-    "sukellusvene": {"Size": 1, "Amount": 4},
+    "lentotukialus": {"Size": 5, "Amount": 1},
+    "risteilija": {"Size": 4, "Amount": 2},
+    "havittaja": {"Size": 3, "Amount": 3},
+    "sukellusvene": {"Size": 2, "Amount": 4},
 }
 
 

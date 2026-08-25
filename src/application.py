@@ -11,4 +11,6 @@ class Application:
         """ Pelin Päivitys loopi """
         self.new_game()
         while True:
-            self.Game.update()
+            status = self.Game.update()
+            if status:
+                break
