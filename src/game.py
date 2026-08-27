@@ -1,11 +1,12 @@
 import subprocess
 import sys
 from random import randint, choice
-from boat import Boat, BoatTypes
+from boat import Boat, BoatTypes, BoatTypeIndex
 import re
 from enum import Enum
+from color import Color
 
-DEBUG = True
+DEBUG = False
 
 
 class Player:
@@ -13,6 +14,14 @@ class Player:
         self.Board: list[list[int]] = [[0 for _ in range(10)] for _ in range(10)]
         self.ShootingBoard: list[list[int]] = [[0 for _ in range(10)] for _ in range(10)]
         self.Boats: list[Boat] = []
+
+        self.NeededBoatAmount = 0
+        for boatType in BoatTypes.values():
+            self.NeededBoatAmount += boatType['Amount']
+
+        self.CurrentBoatTypeIndex: int = 0
+        self.CurrentBoatType = BoatTypes[BoatTypeIndex[self.CurrentBoatTypeIndex]]
+
         if DEBUG:
             self.place_boats()
 
@@ -25,12 +34,13 @@ class Player:
         if self.check_neighbors(new_boat):
             return False
         
-        inside_board = False
+        inside_board = True
         for pos in new_boat.get_positions():
             x, y = pos
-            if (x >= 0 and x <= len(self.Board[0]) - 1) and (y >= 0 and y <= len(self.Board) - 1):
-                inside_board = True
-            else:
+            #print(f"PosX: {x} PosY: {y}")
+            try:
+                self.Board[y][x]
+            except IndexError:
                 inside_board = False
 
         if not inside_board:
@@ -42,6 +52,15 @@ class Player:
             new_boat.add_cell(pos)
 
         self.Boats.append(new_boat)
+
+        if not self.check_boatType_amount(boatType):
+            self.CurrentBoatTypeIndex += 1
+
+            indexRange = (len(BoatTypeIndex))
+            self.CurrentBoatTypeIndex %= indexRange
+
+            self.CurrentBoatType = BoatTypes[BoatTypeIndex[self.CurrentBoatTypeIndex]]
+        
         return True
 
     def check_boatType_amount(self, boatType: dict[str, int]) -> bool:
@@ -75,7 +94,9 @@ class Player:
             (1,-1),
             (-1,1)
         ]
+
         has_neighbors = False
+        neighbor_cells = []
 
         for pos in boat.get_positions():
 
@@ -86,11 +107,12 @@ class Player:
 
                 try:
                     if self.Board[y][x] == 1:
-                        has_neighbors = True
-                        break
+                        neighbor_cells.append(True)
                 except IndexError:
-                    has_neighbors = True
-                    break
+                    neighbor_cells.append(False)
+
+        if any(neighbor_cells):
+            has_neighbors = True
         
         return has_neighbors
     
@@ -109,8 +131,6 @@ class Player:
         for boat in self.Boats:
             if pos in boat.Cells.keys():
                 return boat
-            #if any(boat.Cells.keys() is pos):
-            #    return boat
         return None
     
     def shoot(self, pos: tuple[int, int], otherPlayer) -> tuple[bool, bool]:
@@ -130,8 +150,9 @@ class Player:
 
                 if not boat.check_status():
                     kill = True
-                
-                boat.print_data()
+
+                if DEBUG:
+                    boat.print_data()
             else:
                 self.Board[y][x] = 3
                 otherPlayer.ShootingBoard[y][x] = 3
@@ -144,12 +165,9 @@ class Player:
         Tämä functio laitaa laivat randomisti peli laudalle. Yritää niin pitkää kunnes saa kaikki laitettua.
         """
 
-        neededAmount = 0
+        neededAmount = self.NeededBoatAmount
         placedAmount = 0
         placementFailsAmount = 0
-
-        for boatType in BoatTypes.values():
-            neededAmount += boatType['Amount']
             
         while placedAmount < neededAmount:
             posX = 0
@@ -188,7 +206,7 @@ class Player:
         boatStatusList = []
         for boat in self.Boats:
             boatStatusList.append(boat.check_status())
-        print(boatStatusList)
+        #print(boatStatusList)
         return any(boatStatusList)
 
 
@@ -205,19 +223,21 @@ class Cpu(Player):
         self.last_hit_pos = None
         self.found_dir = None
 
-        self.random_pattern: list[tuple[int, int]] = []
+        self.choise_pattern: list[tuple[int, int]] = []
 
         for y in range(10):
             for x in range(10):
                 if y % 2 == 0 and x % 2 == 0:
-                    self.random_pattern.append((x,y))
+                    self.choise_pattern.append((x,y))
                 elif y % 2 != 0 and x % 2 != 0:
-                    self.random_pattern.append((x,y))
+                    self.choise_pattern.append((x,y))
         if DEBUG:
-            print(self.random_pattern)
+            print(self.choise_pattern)
+
         self.place_boats()
 
-    def reverse_dir(self, dir) -> tuple[int, int]:
+    def reverse_dir(self, dir: tuple[int, int]) -> tuple[int, int]:
+        """ Kääntää annetun suunnan. """
         match dir:
             case (0, 1):
                 return (0, -1)
@@ -229,6 +249,8 @@ class Cpu(Player):
                 return (1, 0)
 
     def play(self, otherPlayer):
+        """ Tietokoneen pelaus functio joka hoitaa kaiken ampumisen jne. """
+
         dirs = [
             (0,-1),
             (0, 1),
@@ -256,21 +278,9 @@ class Cpu(Player):
         else:
             position_trys = 0
             while True:
-                random_position = choice(self.random_pattern)
+                random_position = choice(self.choise_pattern)
                 posX = random_position[0]
                 posY = random_position[1]
-
-                #neighbors = 0
-                #for dir in dirs:
-                #    x = posX + dir[0]
-                #    y = posY + dir[1]
-                #    try:
-                #        if self.ShootingBoard[y][x] == 2 or self.ShootingBoard[y][x] == 3:
-                #            neighbors += 1
-                #    except IndexError:
-                #        continue
-                #if neighbors > 3:
-                #    continue
 
                 if self.ShootingBoard[posY][posX] == 2 or self.ShootingBoard[posY][posX] == 3:
                     position_trys += 1
@@ -317,7 +327,7 @@ class Game:
         self.Players: tuple[Player, Player] = (Player(), Cpu())
         self.Current_player_index: int = 0
         self.Current_player: Player = self.Players[self.Current_player_index]
-        self.State: GameState = GameState.Shooting
+        self.State: GameState = GameState.Placement
 
     def get_other_player(self) -> Player:
         """
@@ -332,6 +342,7 @@ class Game:
         self.Current_player.place_boat(boatType, pos, rotation)
     
     def shoot(self, pos: tuple[int, int]):
+        """ Ampuu toisen pelaajan lautaan. """
         otherPlayer: Player = self.get_other_player()
         hit, kill = otherPlayer.shoot(pos, self.Current_player)
 
@@ -356,10 +367,10 @@ class Game:
 
     def draw_player_boards(self, player: Player):
         """ Piirtää pelaajan molemmat peli laudat. """
-        self.draw_board(player.ShootingBoard, self.get_other_player())
-        self.draw_board(player.Board, self.Current_player)
+        self.draw_board(player.ShootingBoard, self.get_other_player(), "Shooting Board")
+        self.draw_board(player.Board, self.Current_player, "Board")
 
-    def draw_board(self, board: list[list[int]], player: Player):
+    def draw_board(self, board: list[list[int]], player: Player, boardName: str):
         """ 
         Piirtää annetun laudan.
         board: list[list[int]]
@@ -367,27 +378,33 @@ class Game:
         """
 
         print("\n\n")
+        print(f"{boardName.center(22, " ")}")
         print("  A B C D E F G H I J")
         for y in range(len(board)):
             print(y, end=" ")
             for x in range(len(board[y])):
                 match board[y][x]:
                     case 0:
-                        print(".", end=" ")
+                        print(f"{Color.OKBLUE}~{Color.ENDC}", end=" ")
                     case 1:
                         print("@", end=" ")
                     case 2:
+
                         boat = player.get_boat_by_pos((x,y))
+
                         if not boat.check_status():
-                            print("#", end=" ")
+                            print(f"{Color.OKGREEN}*{Color.ENDC}", end=" ")
                         else:
-                            print("¤", end=" ")
+                            print("-", end=" ")
+
                     case 3:
-                        print("X", end=" ")
+                        print(f"{Color.FAIL}¤{Color.ENDC}", end=" ")
             print()
         print("---------------------")
 
     def convert_command(self, command: str) -> tuple[int, int, int]:
+        """ Muuttaa komennon x,y ja suunta muotoon """
+
         char_to_number = {
             "a": 0,
             "b": 1,
@@ -409,11 +426,20 @@ class Game:
 
         try: int(parts[1])
         except: return (0,0,0)
+
+        x = 0
+        y = 0
         dir = 0
+
         if len(parts) == 2:
-            x = char_to_number[parts[0].lower()]
+            try:
+                x = char_to_number[parts[0].lower()]
+            except KeyError:
+                x = 0
             y = int(parts[1])
         else:
+            x = char_to_number[parts[0].lower()]
+            y = int(parts[1])
             dir = direction[parts[2].lower()]
 
         return (x, y, dir)
@@ -422,18 +448,37 @@ class Game:
     def update(self) -> bool:
         """ Pelin Update functio joka pyörii joka kerta uudestaan kun input annetaan. """
 
-        #self.clear_console()
-        print(f"Current Player: {type(self.Current_player)}")
+        self.clear_console()
         self.draw_player_boards(self.Current_player)
 
         if not isinstance(self.Current_player, Cpu):
-            command = str(input("Anna positio: "))
+            match self.State:
+                case GameState.Placement:
+                    print(f"Nykynen laiva: {BoatTypeIndex[self.Current_player.CurrentBoatTypeIndex]}")
+                    print(f"Laivan Koko: {BoatTypes[BoatTypeIndex[self.Current_player.CurrentBoatTypeIndex]]['Size']}")
+                    print()
+                    print("Komento ohje: Sarake = Kirjain (a-j), Rivi = Numero (0-9), Suunta = Kirjain (D = Alas, S = Sivulle)")
+                    print()
+                case GameState.Shooting:
+                    print("Komento ohje: Sarake = Kirjain (a-j), Rivi = Numero (0-9)")
+                    print()
+
+            
+            try:
+                command = str(input("Anna positio: "))
+            except KeyboardInterrupt:
+                self.clear_console()
+                return True
 
             x, y, dir = self.convert_command(command)
 
             if self.State == GameState.Placement:
 
-                self.place_boat(BoatTypes["lentotukialus"], (x,y), dir)
+                self.place_boat(self.Current_player.CurrentBoatType, (x,y), dir)
+                print(self.Current_player.NeededBoatAmount)
+
+                if len(self.Current_player.Boats) == self.Current_player.NeededBoatAmount:
+                    self.State = GameState.Shooting
 
             elif self.State == GameState.Shooting:
 
@@ -441,9 +486,12 @@ class Game:
         else:
             self.Current_player.play(self.get_other_player())
 
+        #print(self.State)
 
-        
-        self.change_player()
+        if self.State == GameState.Shooting:
+            self.change_player()
 
-        #if not self.Current_player.is_dead():
-        #    return True
+        if not self.Current_player.is_dead():
+            self.clear_console()
+            self.draw_player_boards(self.Current_player)
+            return True

@@ -9,7 +9,6 @@ class Application:
     
     def run(self):
         """ Pelin Päivitys loopi """
-        self.new_game()
         while True:
             status = self.Game.update()
             if status:
