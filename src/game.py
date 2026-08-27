@@ -139,6 +139,7 @@ class Player:
         x, y = pos
         hit = False
         kill = False
+
         try:
             if self.check_pos(pos):
                 boat = self.get_boat_by_pos(pos)
@@ -157,6 +158,8 @@ class Player:
                 self.Board[y][x] = 3
                 otherPlayer.ShootingBoard[y][x] = 3
         except IndexError:
+            return (hit, kill)
+        except AttributeError:
             return (hit, kill)
         return (hit, kill)
     
@@ -457,7 +460,7 @@ class Game:
                     print(f"Nykynen laiva: {BoatTypeIndex[self.Current_player.CurrentBoatTypeIndex]}")
                     print(f"Laivan Koko: {BoatTypes[BoatTypeIndex[self.Current_player.CurrentBoatTypeIndex]]['Size']}")
                     print()
-                    print("Komento ohje: Sarake = Kirjain (a-j), Rivi = Numero (0-9), Suunta = Kirjain (D = Alas, S = Sivulle)")
+                    print("Komento ohje: Sarake = Kirjain (a-j), Rivi = Numero (0-9), Suunta = Kirjain (D = Alas, S = Sivulle) | rand - komento laitaa kaikki laivat")
                     print()
                 case GameState.Shooting:
                     print("Komento ohje: Sarake = Kirjain (a-j), Rivi = Numero (0-9)")
@@ -469,6 +472,10 @@ class Game:
             except KeyboardInterrupt:
                 self.clear_console()
                 return True
+            
+            if command == "rand":
+                self.Current_player.place_boats()
+                
 
             x, y, dir = self.convert_command(command)
 
