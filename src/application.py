@@ -13,3 +13,7 @@ class Application:
             status = self.Game.update()
             if status:
                 break
+
+if __name__ == "__main__":
+    print("Pyöritä main.py")
+    input("Paina Enter")

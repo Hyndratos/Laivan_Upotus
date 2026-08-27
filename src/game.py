@@ -495,3 +495,8 @@ class Game:
             self.clear_console()
             self.draw_player_boards(self.Current_player)
             return True
+
+
+if __name__ == "__main__":
+    print("Pyöritä main.py")
+    input("Paina Enter")

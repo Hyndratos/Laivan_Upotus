@@ -58,3 +58,7 @@ class Boat:
     def print_data(self):
         print(f"Size: {self.Size}")
         print(f"Cells: {self.Cells}")
+
+if __name__ == "__main__":
+    print("Pyöritä main.py")
+    input("Paina Enter")

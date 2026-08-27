@@ -8,3 +8,7 @@ class Color:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+
+if __name__ == "__main__":
+    print("Pyöritä main.py")
+    input("Paina Enter")
